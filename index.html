@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Mini Civilization</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -13,6 +13,7 @@
       font-family: 'Courier New', monospace;
       overflow: hidden;
       height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
       user-select: none;
@@ -22,15 +23,17 @@
     #top-bar {
       background: #161b22;
       border-bottom: 1px solid #30363d;
-      padding: 6px 10px;
+      padding: 4px 10px;
+      padding-top: calc(4px + env(safe-area-inset-top, 0px));
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       font-size: 12px;
       flex-shrink: 0;
       flex-wrap: wrap;
     }
     #turn-label { color: #8b949e; font-size: 11px; }
+    #player-label { font-size: 11px; font-weight: bold; }
     .res { display: flex; align-items: center; gap: 3px; }
     .res span:first-child { font-size: 14px; }
 
@@ -47,23 +50,25 @@
     #bot {
       background: #161b22;
       border-top: 1px solid #30363d;
-      padding: 6px 8px;
+      padding: 5px 8px;
+      padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
       flex-shrink: 0;
-      min-height: 72px;
     }
-    #bot-title { font-size: 11px; color: #8b949e; margin-bottom: 4px; }
-    #bot-info  { font-size: 12px; margin-bottom: 5px; min-height: 16px; }
-    #bot-btns  { display: flex; gap: 5px; flex-wrap: wrap; }
+    #bot-title { font-size: 11px; color: #8b949e; margin-bottom: 2px; }
+    #bot-info  { font-size: 12px; margin-bottom: 4px; min-height: 14px; }
+    #bot-btns  { display: flex; gap: 4px; flex-wrap: wrap; }
     .btn {
       background: #21262d;
       border: 1px solid #30363d;
       color: #e6edf3;
-      padding: 4px 10px;
+      padding: 6px 10px;
       font-size: 12px;
       cursor: pointer;
       border-radius: 6px;
       font-family: inherit;
       transition: background .15s;
+      min-height: 32px;
+      touch-action: manipulation;
     }
     .btn:active { background: #388bfd44; border-color: #388bfd; }
     .btn-primary {
@@ -72,7 +77,8 @@
       font-weight: bold;
     }
     .btn-primary:active { background: #2ea043; }
-    .btn-danger { border-color: #da3633; }
+    .btn-danger { border-color: #da3633; color: #f85149; }
+    .btn-peace  { border-color: #58a6ff; color: #58a6ff; }
 
     /* ─── MODAL ─── */
     #modal {
@@ -137,17 +143,89 @@
       white-space: nowrap;
     }
     #toast.show { opacity: 1; }
+
+    /* ─── MAIN MENU ─── */
+    #menu {
+      display: flex;
+      position: fixed; inset: 0;
+      background: #0d1117;
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0;
+    }
+    #menu-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 32px 24px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      max-width: 340px;
+      width: 90%;
+    }
+    #menu-box h1 { font-size: 28px; letter-spacing: 2px; color: #f0c040; }
+    #menu-box p  { font-size: 12px; color: #8b949e; margin-top: -8px; }
+    .menu-btn {
+      width: 100%;
+      padding: 10px 16px;
+      font-size: 14px;
+      text-align: center;
+    }
+    #menu-divider {
+      width: 100%;
+      border: none;
+      border-top: 1px solid #30363d;
+      margin: 2px 0;
+    }
+
+    /* ─── HANDOFF SCREEN ─── */
+    #handoff {
+      display: none;
+      position: fixed; inset: 0;
+      background: #0d1117;
+      z-index: 150;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #handoff-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 32px 24px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      max-width: 320px;
+      width: 88%;
+      text-align: center;
+    }
+    #handoff-box h2 { font-size: 22px; }
+    #handoff-box p  { font-size: 13px; color: #8b949e; }
+    #handoff-box .btn { min-width: 160px; padding: 10px; font-size: 14px; }
+
+    /* ─── PEACE OFFER POPUP (inside modal) ─── */
+    .peace-accept { border-color: #3fb950; color: #3fb950; }
+    .peace-decline { border-color: #f85149; color: #f85149; }
   </style>
 </head>
 <body>
 
 <div id="top-bar">
   <span id="turn-label">Ход 1</span>
+  <span id="player-label" style="display:none"></span>
   <span class="res">🌾<span id="r-food">10</span></span>
   <span class="res">⚒️<span id="r-prod">10</span></span>
   <span class="res">💰<span id="r-gold">10</span></span>
   <span class="res">🔬<span id="r-sci">0</span></span>
   <span class="res" id="tech-status" style="color:#58a6ff"></span>
+  <span id="peace-status" style="color:#3fb950;display:none"></span>
 </div>
 
 <div id="canvas-wrap">
@@ -173,6 +251,28 @@
 
 <div id="toast"></div>
 
+<!-- MAIN MENU -->
+<div id="menu">
+  <div id="menu-box">
+    <h1>⚔️ MiniCiv</h1>
+    <p>Пошаговая стратегия</p>
+    <button class="btn btn-primary menu-btn" onclick="startGame('solo')">🤖 Против ИИ</button>
+    <hr id="menu-divider">
+    <button class="btn menu-btn" onclick="startGame('hotseat')">👥 Мультиплеер (хотсит)</button>
+    <div style="font-size:11px;color:#8b949e;text-align:center;margin-top:-6px">2 игрока на одном устройстве</div>
+  </div>
+</div>
+
+<!-- HANDOFF SCREEN -->
+<div id="handoff">
+  <div id="handoff-box">
+    <div style="font-size:40px" id="handoff-icon">👥</div>
+    <h2 id="handoff-title">Ход Игрока 2</h2>
+    <p id="handoff-msg">Передайте устройство Игроку 2, затем нажмите кнопку</p>
+    <button class="btn btn-primary" onclick="resumePlay()">▶ Начать ход</button>
+  </div>
+</div>
+
 <script>
 /* ════════════════════════════════════════════
    TELEGRAM INIT
@@ -186,44 +286,30 @@ if (tg) { tg.ready(); tg.expand(); }
 const MAP_COLS  = 14;
 const MAP_ROWS  = 9;
 const HEX_R     = 28;
-const HEX_W     = Math.round(Math.sqrt(3) * HEX_R);   // ~49
-const HEX_H     = HEX_R * 2;  // 56
+const HEX_W     = Math.round(Math.sqrt(3) * HEX_R);
+const HEX_H     = HEX_R * 2;
 
-/* ─── Sprite map [row, col] → sprites/sprite_R_C.png ─── */
-// Row 0: units (green/red/blue hex bg)
-// Row 1: buildings
-// Row 2: terrain
-// Row 3: resources
-// Row 4: yield icons
-// Row 5: combat icons
 const SP = {
-  // Row 0 – Units
   SETTLER:   [0,0],  WARRIOR:   [0,1],  ARCHER:    [0,2],
   SPEARMAN:  [0,3],  CAVALRY:   [0,4],  KNIGHT:    [0,5],
   CHARIOT:   [0,6],  CATAPULT:  [0,7],  LEGIONARY: [0,8],
   ENEMY_U:   [0,9],  SWORDS:    [0,11], HOURGLASS: [0,12],
-  // Row 1 – Buildings
   CITY1:     [1,0],  CITY2:     [1,1],  HOUSE:     [1,2],
   MARKET_B:  [1,3],  GRANARY_B: [1,4],  LIBRARY_B: [1,5],
   TEMPLE:    [1,6],  STALL:     [1,7],  TOWER:     [1,8],
   FORTRESS:  [1,9],
-  // Row 2 – Terrain
   PLAINS:    [2,0],  GRASS:     [2,1],  SHRUB:     [2,2],
   FOREST:    [2,3],  HILLS:     [2,4],  MOUNTAIN:  [2,5],
   DESERT:    [2,6],  TUNDRA:    [2,7],  OCEAN:     [2,8],
   COAST:     [2,9],  JUNGLE:    [2,10],
-  // Row 3 – Resources
   WHEAT:     [3,0],  IRON:      [3,1],  HORSE:     [3,2],
   MARBLE:    [3,3],  COAL:      [3,4],  LUMBER:    [3,5],
   WINE:      [3,6],  WHALE:     [3,7],  FISH:      [3,8],
-  // Row 4 – Yields
   FLASK:     [4,0],  TOOLS:     [4,1],  COIN:      [4,2],
   GEM:       [4,3],  ATOM:      [4,4],
-  // Row 5 – Combat
   COMBAT:    [5,0],
 };
 
-/* ─── Terrain definitions ─── */
 const TERRAIN = {
   GRASS:    { sp: SP.GRASS,    move:1, food:2, prod:1, gold:0, name:'Равнина' },
   PLAINS:   { sp: SP.PLAINS,   move:1, food:1, prod:0, gold:1, name:'Степь'   },
@@ -236,7 +322,6 @@ const TERRAIN = {
   COAST:    { sp: SP.COAST,    move:1, food:2, prod:0, gold:1, name:'Берег'   },
 };
 
-/* ─── Resources ─── */
 const RES_DEF = {
   WHEAT: { sp:SP.WHEAT, food:2, prod:0, gold:0, name:'Пшеница' },
   IRON:  { sp:SP.IRON,  food:0, prod:2, gold:0, name:'Железо'  },
@@ -245,16 +330,14 @@ const RES_DEF = {
   WINE:  { sp:SP.WINE,  food:1, prod:0, gold:2, name:'Вино'    },
 };
 
-/* ─── Unit types ─── */
 const UNITS = {
   SETTLER:  { sp:SP.SETTLER,   move:2, str:0,  cost:60, hp:10, name:'Поселенец' },
   WARRIOR:  { sp:SP.WARRIOR,   move:2, str:8,  cost:25, hp:10, name:'Воин'      },
-  ARCHER:   { sp:SP.ARCHER,    move:2, str:12, cost:35, hp:8,  req:'bronze',     name:'Лучник'   },
-  KNIGHT:   { sp:SP.KNIGHT,    move:3, str:20, cost:65, hp:12, req:'horseback',  name:'Рыцарь'   },
+  ARCHER:   { sp:SP.ARCHER,    move:2, str:12, cost:35, hp:8,  req:'bronze',     name:'Лучник'    },
+  KNIGHT:   { sp:SP.KNIGHT,    move:3, str:20, cost:65, hp:12, req:'horseback',  name:'Рыцарь'    },
   CATAPULT: { sp:SP.CATAPULT,  move:2, str:8,  cost:80, hp:8,  req:'mathematics',name:'Катапульта'},
 };
 
-/* ─── Building types ─── */
 const BLDGS = {
   GRANARY:  { sp:SP.GRANARY_B, food:2, prod:0, gold:0, sci:0, cost:35, name:'Амбар' },
   MARKET:   { sp:SP.MARKET_B,  food:0, prod:0, gold:3, sci:0, cost:45, req:'writing', name:'Рынок' },
@@ -262,7 +345,6 @@ const BLDGS = {
   BARRACKS: { sp:SP.FORTRESS,  food:0, prod:2, gold:0, sci:0, cost:50, req:'bronze', name:'Казармы' },
 };
 
-/* ─── Technologies ─── */
 const TECHS = [
   { id:'agriculture', name:'Земледелие',    cost:20, icon:SP.WHEAT,    pre:[],                        desc:'+2🌾 от амбаров' },
   { id:'mining',      name:'Горное дело',   cost:25, icon:SP.IRON,     pre:[],                        desc:'+2⚒️ от казарм' },
@@ -278,24 +360,41 @@ const TECHS = [
 ════════════════════════════════════════════ */
 let G = {};
 
+function freshPlayerState() {
+  return { res:{food:10,prod:10,gold:10,sci:0}, sciProg:0, techQ:null, techs:[] };
+}
+
 function freshState() {
   return {
     turn: 1,
     over: false,
-    sel: null,           // {type:'unit'|'city', id}
+    sel: null,
+    mode: 'solo',          // 'solo' | 'hotseat'
+    currentPlayer: 1,      // 1 or 2 (hotseat only)
+    atWar: true,           // peace treaty flag (solo mode)
+    peaceTurns: 0,         // turns remaining in peace
+    peacePending: false,   // player 1 offered peace to player 2 (hotseat)
+    // Per-player state (hotseat: player saves before swap)
+    p1: freshPlayerState(),
+    p2: freshPlayerState(),
+    // Resources / tech (active player's live state)
     res: { food:10, prod:10, gold:10, sci:0 },
     sciProg: 0,
-    techQ: null,         // current research id
-    techs: [],           // researched tech ids
+    techQ: null,
+    techs: [],
     map: [],
     vis: [],
     seen: [],
-    cities: [],          // player cities
-    units: [],           // player units
-    aCities: [],         // AI cities
-    aUnits: [],          // AI units
+    p1seen: [],  // fog of war per player
+    p2seen: [],
+    cities: [],
+    units: [],
+    aCities: [],
+    aUnits: [],
     camX: 0,
     camY: 0,
+    p1camX: 0, p1camY: 0,
+    p2camX: 0, p2camY: 0,
     nextId: 100,
   };
 }
@@ -306,7 +405,7 @@ function newId() { return ++G.nextId; }
    MAP GENERATION
 ════════════════════════════════════════════ */
 function genMap() {
-  const map  = [], vis = [], seen = [];
+  const map = [], vis = [], seen = [];
   for (let r = 0; r < MAP_ROWS; r++) {
     map[r] = []; vis[r] = []; seen[r] = [];
     for (let c = 0; c < MAP_COLS; c++) {
@@ -325,7 +424,6 @@ function genMap() {
       seen[r][c] = false;
     }
   }
-  // Scatter resources
   const resKeys = Object.keys(RES_DEF);
   for (let i = 0; i < 18; i++) {
     const r = rnd(MAP_ROWS), c = rnd(MAP_COLS);
@@ -384,7 +482,6 @@ const canvas = document.getElementById('gc');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-// Lazy sprite cache — loads sprites/sprite_R_C.png on demand
 const _sprCache = {};
 function getSprite(row, col) {
   const key = `${row}_${col}`;
@@ -428,14 +525,18 @@ function hexPath(x, y, r) {
   ctx.closePath();
 }
 
+// Color for current player's units/cities
+function playerColor() {
+  if (G.mode === 'hotseat' && G.currentPlayer === 2) return '#ff9900';
+  return '#3fb950';
+}
+
 function render() {
   if (!canvas.width || !G.map) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle='#111820';
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // Sprites are 96×102px with white bg — clip to hex, draw at 72px
-  // (scaled so the hex icon inside fills the HEX_R=28 clip area)
   const S = 72;
 
   for (let r=0;r<MAP_ROWS;r++) for (let c=0;c<MAP_COLS;c++) {
@@ -447,32 +548,31 @@ function render() {
     const seen = G.seen[r][c];
     const vis  = G.vis[r][c];
 
-    if (!seen) continue;   // just show dark background for unseen
+    if (!seen) continue;
 
-    // ── Terrain ──
     spr(TERRAIN[tile.t].sp, x, y, S);
 
-    // ── Fog overlay for explored-but-not-visible tiles ──
     if (!vis) {
       hexPath(x, y, HEX_R - 1);
       ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
     }
 
-    // ── Resource (visible only) ──
     if (vis && tile.res) {
       spr(RES_DEF[tile.res].sp, x, y, S);
     }
 
-    // ── Player city ──
+    // Player city
     const pc = G.cities.find(ci=>ci.c===c&&ci.r===r);
     if (pc) {
       spr(pc.pop>=4 ? SP.CITY2 : SP.CITY1, x, y, S);
-      ctx.fillStyle='#fff'; ctx.font='bold 8px monospace'; ctx.textAlign='center';
+      // Player color label
+      ctx.fillStyle = playerColor();
+      ctx.font='bold 8px monospace'; ctx.textAlign='center';
       ctx.fillText(pc.name, x, y+HEX_R+10);
       if (pc.hp < pc.maxHp) drawHPbar(x, y, pc.hp, pc.maxHp);
     }
 
-    // ── AI city (seen) ──
+    // Enemy city
     const ac = G.aCities.find(ci=>ci.c===c&&ci.r===r);
     if (ac) {
       spr(SP.FORTRESS, x, y, S);
@@ -483,7 +583,7 @@ function render() {
       }
     }
 
-    // ── Player unit ──
+    // Player unit
     const pu = G.units.find(u=>u.c===c&&u.r===r);
     if (pu) {
       spr(UNITS[pu.type].sp, x, y, S);
@@ -495,14 +595,14 @@ function render() {
       }
     }
 
-    // ── AI unit (visible only) ──
+    // Enemy unit
     const au = G.aUnits.find(u=>u.c===c&&u.r===r);
     if (au && vis) {
       spr(SP.ENEMY_U, x, y, S);
       if (au.hp < au.maxHp) drawHPbar(x, y, au.hp, au.maxHp);
     }
 
-    // ── Selection ring & reachable highlight ──
+    // Selection ring & reachable highlight
     const sel = G.sel;
     if (sel) {
       let selC, selR;
@@ -530,6 +630,18 @@ function render() {
         }
       }
     }
+
+    // Peace indicator: cross over enemy units/cities during peace (solo)
+    if (G.mode === 'solo' && !G.atWar && vis) {
+      if (au) {
+        ctx.save();
+        ctx.strokeStyle = '#3fb950'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, HEX_R * 0.6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
   }
 }
 
@@ -542,14 +654,27 @@ function drawHPbar(x, y, hp, maxHp) {
 }
 
 /* ════════════════════════════════════════════
+   MENU & STARTUP
+════════════════════════════════════════════ */
+function showMenu() {
+  document.getElementById('menu').style.display = 'flex';
+}
+
+function startGame(mode) {
+  document.getElementById('menu').style.display = 'none';
+  G = freshState();
+  G.mode = mode;
+  initGame();
+}
+
+/* ════════════════════════════════════════════
    GAME INIT
 ════════════════════════════════════════════ */
 function initGame() {
-  G = freshState();
   const {map,vis,seen} = genMap();
   G.map=map; G.vis=vis; G.seen=seen;
 
-  // Ensure player start is passable
+  // Player 1 start (top-left area)
   const sc=2, sr=2;
   G.map[sr][sc].t='GRASS';
   G.map[sr+1][sc].t='GRASS';
@@ -559,8 +684,9 @@ function initGame() {
     {id:newId(), type:'SETTLER', c:sc,   r:sr,   hp:10, maxHp:10, movesLeft:2},
     {id:newId(), type:'WARRIOR', c:sc+1, r:sr,   hp:10, maxHp:10, movesLeft:2},
   ];
+  G.cities = [];
 
-  // AI start
+  // Player 2 / AI start (bottom-right area)
   const ac=MAP_COLS-4, ar=MAP_ROWS-3;
   G.map[ar][ac].t='GRASS';
   G.aCities = [{
@@ -572,12 +698,118 @@ function initGame() {
     {id:newId(), type:'WARRIOR', c:ac+1, r:ar-1, hp:10, maxHp:10, movesLeft:2},
   ];
 
-  // Center camera
+  // Init per-player fog of war (both start empty)
+  G.p1seen = Array.from({length:MAP_ROWS}, ()=>Array(MAP_COLS).fill(false));
+  G.p2seen = Array.from({length:MAP_ROWS}, ()=>Array(MAP_COLS).fill(false));
+
+  // Center camera on player 1's start
+  updateVis();
+  // Save p1seen after initial vis
+  G.p1seen = G.seen.map(row => [...row]);
+
   const {x,y} = h2px(sc,sr);
   G.camX = canvas.width/2 - x;
   G.camY = canvas.height/2 - y;
+  G.p1camX = G.camX; G.p1camY = G.camY;
+
+  // Player 2 camera: center on their start
+  const p2pos = h2px(ac, ar);
+  G.p2camX = canvas.width/2 - p2pos.x;
+  G.p2camY = canvas.height/2 - p2pos.y;
+
+  G.currentPlayer = 1;
+  G.p1 = freshPlayerState();
+  G.p2 = freshPlayerState();
+  G.res = { food:10, prod:10, gold:10, sci:0 };
+
+  // Show player label in hotseat
+  const plLabel = document.getElementById('player-label');
+  if (G.mode === 'hotseat') {
+    plLabel.style.display = '';
+    plLabel.textContent = '👤 Игрок 1';
+    plLabel.style.color = '#3fb950';
+  } else {
+    plLabel.style.display = 'none';
+  }
+
+  updateUI();
+  render();
+}
+
+/* ════════════════════════════════════════════
+   HOTSEAT: SWAP PLAYERS
+════════════════════════════════════════════ */
+function swapToPlayer(playerNum) {
+  // Save current active player's state
+  const saveKey = G.currentPlayer === 1 ? 'p1' : 'p2';
+  G[saveKey] = {
+    res: { ...G.res },
+    sciProg: G.sciProg,
+    techQ: G.techQ,
+    techs: [...G.techs],
+  };
+  // Save camera
+  if (G.currentPlayer === 1) {
+    G.p1camX = G.camX; G.p1camY = G.camY;
+    G.p1seen = G.seen.map(r => [...r]);
+  } else {
+    G.p2camX = G.camX; G.p2camY = G.camY;
+    G.p2seen = G.seen.map(r => [...r]);
+  }
+
+  // Swap city/unit arrays so new player controls their side
+  [G.cities, G.aCities] = [G.aCities, G.cities];
+  [G.units,  G.aUnits]  = [G.aUnits,  G.units];
+
+  G.currentPlayer = playerNum;
+  G.sel = null;
+
+  // Load new player's state
+  const loadKey = playerNum === 1 ? 'p1' : 'p2';
+  const ps = G[loadKey];
+  G.res     = { ...ps.res };
+  G.sciProg = ps.sciProg;
+  G.techQ   = ps.techQ;
+  G.techs   = [...ps.techs];
+
+  // Restore camera
+  if (playerNum === 1) {
+    G.camX = G.p1camX; G.camY = G.p1camY;
+    G.seen = G.p1seen.map(r => [...r]);
+  } else {
+    G.camX = G.p2camX; G.camY = G.p2camY;
+    G.seen = G.p2seen.map(r => [...r]);
+  }
 
   updateVis();
+}
+
+function showHandoff(toPlayer) {
+  const icon = toPlayer === 1 ? '👤' : '👥';
+  const color = toPlayer === 1 ? '#3fb950' : '#ff9900';
+  document.getElementById('handoff-icon').textContent = icon;
+  document.getElementById('handoff-title').textContent = `Ход Игрока ${toPlayer}`;
+  document.getElementById('handoff-title').style.color = color;
+  document.getElementById('handoff-msg').textContent = `Передайте устройство Игроку ${toPlayer}`;
+  document.getElementById('handoff').style.display = 'flex';
+}
+
+function resumePlay() {
+  document.getElementById('handoff').style.display = 'none';
+
+  // Check if there's a pending peace offer
+  if (G.peacePending) {
+    openPeaceOffer();
+    return;
+  }
+
+  const plLabel = document.getElementById('player-label');
+  if (G.mode === 'hotseat') {
+    const color = G.currentPlayer === 1 ? '#3fb950' : '#ff9900';
+    plLabel.textContent = `${G.currentPlayer === 1 ? '👤' : '👥'} Игрок ${G.currentPlayer}`;
+    plLabel.style.color = color;
+  }
+
   updateUI();
   render();
 }
@@ -585,11 +817,13 @@ function initGame() {
 /* ════════════════════════════════════════════
    CITY FOUNDING & MANAGEMENT
 ════════════════════════════════════════════ */
-const CITY_NAMES = ['Рим','Афины','Москва','Киев','Самарканд',
-                    'Пекин','Новгород','Дели','Мемфис','Карфаген'];
+const CITY_NAMES_P1 = ['Рим','Афины','Москва','Киев','Самарканд','Новгород','Мемфис','Карфаген'];
+const CITY_NAMES_P2 = ['Пекин','Дели','Вавилон','Фивы','Спарта','Багдад','Токио','Тимбукту'];
+
 function foundCity(unit) {
+  const names = G.mode === 'hotseat' && G.currentPlayer === 2 ? CITY_NAMES_P2 : CITY_NAMES_P1;
   const used = G.cities.map(ci=>ci.name);
-  const name = CITY_NAMES.find(n=>!used.includes(n)) || `Город${G.cities.length+1}`;
+  const name = names.find(n=>!used.includes(n)) || `Город${G.cities.length+1}`;
   G.cities.push({
     id:newId(), name, c:unit.c, r:unit.r,
     hp:20, maxHp:20, pop:1, buildings:[], prod:null, prodProg:0, foodStock:0,
@@ -618,7 +852,6 @@ function collectYields() {
     }
     totFood+=cf; totProd+=cp; totGold+=cg; totSci+=cs;
 
-    // City production
     if (city.prod) {
       city.prodProg+=cp;
       const prodCost = city.prod.startsWith('U:')
@@ -626,7 +859,6 @@ function collectYields() {
         : BLDGS[city.prod]?.cost;
       if (prodCost && city.prodProg>=prodCost) finishProd(city);
     }
-    // City growth
     city.foodStock+=cf;
     const growNeed=city.pop*15;
     if (city.foodStock>=growNeed) {
@@ -637,7 +869,6 @@ function collectYields() {
   G.res.food+=totFood; G.res.prod+=totProd;
   G.res.gold+=totGold; G.res.sci+=totSci;
 
-  // Research
   if (G.techQ) {
     G.sciProg+=totSci+1;
     const tech=TECHS.find(t=>t.id===G.techQ);
@@ -714,18 +945,159 @@ function attackCity(unit, city, isPlayerAttacking) {
 }
 
 /* ════════════════════════════════════════════
+   DIPLOMACY & PEACE TREATIES
+════════════════════════════════════════════ */
+function openDiplomacy() {
+  document.getElementById('modal-title').textContent = '🕊️ Дипломатия';
+  document.getElementById('modal-close').style.display = '';
+
+  let html = '';
+
+  if (G.mode === 'solo') {
+    // Solo: show AI relation and peace option
+    const aiPower    = G.aUnits.length * 2 + G.aCities.length * 3;
+    const playerPower= G.units.length  * 2 + G.cities.length  * 3;
+    const moodText   = aiPower < playerPower * 0.6 ? '😰 Враг истощён' :
+                       aiPower > playerPower * 1.5 ? '😤 Враг силён' : '😐 Силы равны';
+
+    html += `<div style="margin-bottom:12px;font-size:12px">
+      <div>Отношения: <b style="color:${G.atWar?'#f85149':'#3fb950'}">${G.atWar ? '⚔️ Война' : '🕊️ Мир'}</b></div>
+      ${G.atWar ? '' : `<div style="color:#8b949e">Осталось ${G.peaceTurns} ходов</div>`}
+      <div style="color:#8b949e;margin-top:4px">${moodText}</div>
+    </div>`;
+
+    if (G.atWar) {
+      html += `<div class="list-item" onclick="offerPeaceSolo()">
+        <span style="font-size:22px">🕊️</span>
+        <div style="flex:1">
+          <b>Предложить мир</b>
+          <div style="font-size:11px;color:#8b949e">10 ходов перемирия · враг может отказать</div>
+        </div>
+      </div>`;
+    } else {
+      html += `<div class="list-item btn-danger" onclick="declareWar()" style="border-color:#f85149">
+        <span style="font-size:22px">⚔️</span>
+        <div style="flex:1">
+          <b>Объявить войну</b>
+          <div style="font-size:11px;color:#8b949e">Нарушить мирный договор</div>
+        </div>
+      </div>`;
+    }
+  } else {
+    // Hotseat: player can offer peace to opponent
+    const statusText = G.atWar ? '⚔️ Война' : `🕊️ Мир (${G.peaceTurns} ходов)`;
+    const statusColor = G.atWar ? '#f85149' : '#3fb950';
+    html += `<div style="margin-bottom:12px;font-size:12px">
+      <div>Отношения: <b style="color:${statusColor}">${statusText}</b></div>
+    </div>`;
+
+    if (G.atWar) {
+      html += `<div class="list-item" onclick="offerPeaceHotseat()">
+        <span style="font-size:22px">🕊️</span>
+        <div style="flex:1">
+          <b>Предложить мир противнику</b>
+          <div style="font-size:11px;color:#8b949e">Соперник увидит предложение на своём ходу</div>
+        </div>
+      </div>`;
+    } else {
+      html += `<div class="list-item" onclick="declareWar()" style="border-color:#f85149">
+        <span style="font-size:22px">⚔️</span>
+        <div style="flex:1">
+          <b>Нарушить мир</b>
+          <div style="font-size:11px;color:#8b949e">Объявить войну прямо сейчас</div>
+        </div>
+      </div>`;
+    }
+  }
+
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal').classList.add('show');
+}
+
+function offerPeaceSolo() {
+  closeModal();
+  const aiPower     = G.aUnits.length * 2 + G.aCities.length * 3;
+  const playerPower = G.units.length  * 2 + G.cities.length  * 3;
+  // AI more likely to accept if weaker
+  const acceptChance = aiPower < playerPower ? 0.75 : 0.25;
+  if (Math.random() < acceptChance) {
+    G.atWar = false;
+    G.peaceTurns = 10;
+    toast('🕊️ Мир заключён на 10 ходов!');
+  } else {
+    toast('❌ Враг отверг мирное предложение');
+  }
+  updateUI();
+}
+
+function offerPeaceHotseat() {
+  closeModal();
+  G.peacePending = true;
+  toast(`🕊️ Игрок ${G.currentPlayer} предлагает мир`);
+  updateUI();
+}
+
+// Called when the OTHER player's turn begins (handoff resumed)
+function openPeaceOffer() {
+  G.peacePending = false;
+  document.getElementById('modal-title').textContent = '🕊️ Предложение мира';
+  document.getElementById('modal-close').style.display = 'none';
+  const offerer = G.currentPlayer === 1 ? 2 : 1;
+  document.getElementById('modal-body').innerHTML = `
+    <p style="margin:10px 0;font-size:14px">Игрок ${offerer} предлагает заключить мир на 10 ходов.</p>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn" style="flex:1;border-color:#3fb950;color:#3fb950" onclick="acceptPeace()">✅ Принять</button>
+      <button class="btn" style="flex:1;border-color:#f85149;color:#f85149" onclick="declinePeace()">❌ Отказать</button>
+    </div>`;
+  document.getElementById('modal').classList.add('show');
+}
+
+function acceptPeace() {
+  G.atWar = false;
+  G.peaceTurns = 10;
+  closeModal();
+  toast('🕊️ Мирный договор заключён на 10 ходов!');
+  const plLabel = document.getElementById('player-label');
+  const color = G.currentPlayer === 1 ? '#3fb950' : '#ff9900';
+  plLabel.textContent = `${G.currentPlayer === 1 ? '👤' : '👥'} Игрок ${G.currentPlayer}`;
+  plLabel.style.color = color;
+  updateUI(); render();
+}
+
+function declinePeace() {
+  closeModal();
+  toast('❌ Мирное предложение отклонено');
+  const plLabel = document.getElementById('player-label');
+  const color = G.currentPlayer === 1 ? '#3fb950' : '#ff9900';
+  plLabel.textContent = `${G.currentPlayer === 1 ? '👤' : '👥'} Игрок ${G.currentPlayer}`;
+  plLabel.style.color = color;
+  updateUI(); render();
+}
+
+function declareWar() {
+  G.atWar = true;
+  G.peaceTurns = 0;
+  closeModal();
+  toast('⚔️ Война объявлена!');
+  updateUI();
+}
+
+/* ════════════════════════════════════════════
    AI TURN
 ════════════════════════════════════════════ */
 function aiTurn() {
-  // AI unit actions
+  // During peace, AI doesn't attack (but still moves away)
+  const peaceful = !G.atWar;
+
   for (const u of [...G.aUnits]) {
     u.movesLeft = UNITS[u.type]?.move||2;
     if (!G.aUnits.includes(u)) continue;
 
-    // Find closest target
     let tc=null, tr=null, td=Infinity;
-    for (const pu of G.units)   { const d=dist(u.c,u.r,pu.c,pu.r); if(d<td){td=d;tc=pu.c;tr=pu.r;} }
-    for (const pc of G.cities)  { const d=dist(u.c,u.r,pc.c,pc.r); if(d<td){td=d;tc=pc.c;tr=pc.r;} }
+    if (!peaceful) {
+      for (const pu of G.units)  { const d=dist(u.c,u.r,pu.c,pu.r); if(d<td){td=d;tc=pu.c;tr=pu.r;} }
+      for (const pc of G.cities) { const d=dist(u.c,u.r,pc.c,pc.r); if(d<td){td=d;tc=pc.c;tr=pc.r;} }
+    }
     if (tc===null) continue;
 
     let moves=u.movesLeft;
@@ -738,13 +1110,13 @@ function aiTurn() {
         const tt=TERRAIN[G.map[nb.row][nb.col].t];
         if (tt.move>=9) continue;
 
-        // Attack player unit
-        const pu=G.units.find(x=>x.c===nb.col&&x.r===nb.row);
-        if (pu) { doCombat(u,pu,false); moves=0; break; }
+        if (!peaceful) {
+          const pu=G.units.find(x=>x.c===nb.col&&x.r===nb.row);
+          if (pu) { doCombat(u,pu,false); moves=0; break; }
 
-        // Attack player city
-        const pc=G.cities.find(x=>x.c===nb.col&&x.r===nb.row);
-        if (pc) { attackCity(u,pc,false); moves=0; break; }
+          const pc=G.cities.find(x=>x.c===nb.col&&x.r===nb.row);
+          if (pc) { attackCity(u,pc,false); moves=0; break; }
+        }
 
         const fri=G.aUnits.find(x=>x.c===nb.col&&x.r===nb.row&&x.id!==u.id);
         if (fri) continue;
@@ -759,7 +1131,6 @@ function aiTurn() {
     }
   }
 
-  // AI city production (simple: produce warrior every N turns)
   for (const city of G.aCities) {
     city.prodProg=(city.prodProg||0)+3;
     if (city.prodProg>=25) {
@@ -775,32 +1146,64 @@ function aiTurn() {
 function endTurn() {
   if (G.over) return;
   collectYields();
-  // Restore unit moves + heal
+
   for (const u of G.units) {
-    u.movesLeft=UNITS[u.type]?.move||2;
+    u.movesLeft = UNITS[u.type]?.move||2;
     if (u.hp<u.maxHp) u.hp=Math.min(u.maxHp, u.hp+1);
   }
+
   G.turn++;
-  aiTurn();
-  checkWinLose();
-  updateVis(); updateUI(); render();
+
+  if (G.mode === 'hotseat') {
+    // Switch to the other player
+    const nextPlayer = G.currentPlayer === 1 ? 2 : 1;
+    checkWinLose();
+    if (G.over) return;
+    swapToPlayer(nextPlayer);
+    showHandoff(nextPlayer);
+  } else {
+    // Solo: peace timer countdown
+    if (G.peaceTurns > 0) {
+      G.peaceTurns--;
+      if (G.peaceTurns === 0) {
+        G.atWar = true;
+        toast('⚔️ Мирный договор истёк!');
+      }
+    }
+    aiTurn();
+    checkWinLose();
+    updateVis(); updateUI(); render();
+  }
 }
 
 function checkWinLose() {
-  if (G.aCities.length===0 && G.aUnits.length===0) { gameOver(true); return; }
-  if (G.cities.length===0 && G.units.length===0)   { gameOver(false); }
+  if (G.mode === 'hotseat') {
+    // In hotseat, current player just ended — check if their opponent (aCities/aUnits) is dead
+    if (G.aCities.length===0 && G.aUnits.length===0) {
+      gameOver(true);
+    }
+  } else {
+    if (G.aCities.length===0 && G.aUnits.length===0) { gameOver(true); return; }
+    if (G.cities.length===0 && G.units.length===0)   { gameOver(false); }
+  }
 }
 
 function gameOver(win) {
   G.over=true;
-  document.getElementById('modal-title').textContent = win ? '🏆 Победа!' : '☠️ Поражение';
+  const winnerText = G.mode === 'hotseat'
+    ? (win ? `🏆 Игрок ${G.currentPlayer} победил!` : `🏆 Игрок ${G.currentPlayer === 1 ? 2 : 1} победил!`)
+    : (win ? '🏆 Победа!' : '☠️ Поражение');
+
+  document.getElementById('modal-title').textContent = winnerText;
   document.getElementById('modal-body').innerHTML = `
     <p style="margin:10px 0;font-size:14px">${win
       ? 'Вы сокрушили всех врагов!'
       : 'Ваша цивилизация пала...'}</p>
     <p>Ход: ${G.turn} | Городов: ${G.cities.length}</p>
-    <button class="btn btn-primary" style="width:100%;margin-top:12px"
-      onclick="location.reload()">Играть снова</button>`;
+    <button class="btn btn-primary" style="width:100%;margin-top:8px"
+      onclick="location.reload()">🔄 Играть снова</button>
+    <button class="btn" style="width:100%;margin-top:8px"
+      onclick="showMenu();closeModal()">🏠 Главное меню</button>`;
   document.getElementById('modal-close').style.display='none';
   document.getElementById('modal').classList.add('show');
 }
@@ -809,56 +1212,73 @@ function gameOver(win) {
    UI UPDATES
 ════════════════════════════════════════════ */
 function updateUI() {
-  document.getElementById('turn-label').textContent=`Ход ${G.turn}`;
-  document.getElementById('r-food').textContent=G.res.food;
-  document.getElementById('r-prod').textContent=G.res.prod;
-  document.getElementById('r-gold').textContent=G.res.gold;
-  document.getElementById('r-sci').textContent=G.res.sci;
-  const ts=document.getElementById('tech-status');
+  document.getElementById('turn-label').textContent = `Ход ${G.turn}`;
+  document.getElementById('r-food').textContent = G.res.food;
+  document.getElementById('r-prod').textContent = G.res.prod;
+  document.getElementById('r-gold').textContent = G.res.gold;
+  document.getElementById('r-sci').textContent  = G.res.sci;
+
+  const ts = document.getElementById('tech-status');
   if (G.techQ) {
-    const t=TECHS.find(x=>x.id===G.techQ);
-    ts.textContent=`📖 ${t.name} ${G.sciProg}/${t.cost}`;
-  } else ts.textContent='';
+    const t = TECHS.find(x=>x.id===G.techQ);
+    ts.textContent = `📖 ${t.name} ${G.sciProg}/${t.cost}`;
+  } else ts.textContent = '';
+
+  // Peace status
+  const ps = document.getElementById('peace-status');
+  if (G.mode === 'solo' && !G.atWar) {
+    ps.style.display = '';
+    ps.textContent = `🕊️ Мир ${G.peaceTurns}х`;
+  } else {
+    ps.style.display = 'none';
+  }
+
   updatePanel();
 }
 
 function updatePanel() {
-  const title=document.getElementById('bot-title');
-  const info=document.getElementById('bot-info');
-  const btns=document.getElementById('bot-btns');
-  const sel=G.sel;
+  const title = document.getElementById('bot-title');
+  const info  = document.getElementById('bot-info');
+  const btns  = document.getElementById('bot-btns');
+  const sel   = G.sel;
 
-  const endBtn=`<button class="btn btn-primary" onclick="endTurn()">Конец хода ▶</button>`;
-  const techBtn=`<button class="btn" onclick="openTech()">🔬 Наука</button>`;
+  const endBtn  = `<button class="btn btn-primary" onclick="endTurn()">Конец хода ▶</button>`;
+  const techBtn = `<button class="btn" onclick="openTech()">🔬 Наука</button>`;
+  const diplBtn = G.mode === 'solo'
+    ? `<button class="btn btn-peace" onclick="openDiplomacy()">🕊️</button>`
+    : `<button class="btn btn-peace" onclick="openDiplomacy()">🕊️ Дипломатия</button>`;
 
   if (!sel) {
-    title.textContent='Кликните на юнит или город';
-    info.innerHTML='';
-    btns.innerHTML=endBtn+techBtn;
+    title.textContent = G.mode === 'hotseat'
+      ? `Игрок ${G.currentPlayer} — выберите юнит или город`
+      : 'Кликните на юнит или город';
+    info.innerHTML = '';
+    btns.innerHTML = endBtn + techBtn + diplBtn;
     return;
   }
+
   if (sel.type==='unit') {
-    const u=G.units.find(x=>x.id===sel.id);
+    const u = G.units.find(x=>x.id===sel.id);
     if (!u) { G.sel=null; updatePanel(); return; }
-    const def=UNITS[u.type];
-    title.textContent=`⚔️ ${def.name}`;
-    info.innerHTML=`❤️${u.hp}/${u.maxHp} ⚡${u.movesLeft}/${def.move} ⚔️${def.str}`;
-    let b=endBtn+techBtn;
+    const def = UNITS[u.type];
+    title.textContent = `⚔️ ${def.name}`;
+    info.innerHTML = `❤️${u.hp}/${u.maxHp} ⚡${u.movesLeft}/${def.move} ⚔️${def.str}`;
+    let b = endBtn + techBtn + diplBtn;
     if (u.type==='SETTLER' && !G.cities.find(c=>c.c===u.c&&c.r===u.r))
-      b+=`<button class="btn" onclick="doFoundCity()">🏛 Основать</button>`;
-    b+=`<button class="btn" onclick="desel()">✕</button>`;
-    btns.innerHTML=b;
+      b += `<button class="btn" onclick="doFoundCity()">🏛 Основать</button>`;
+    b += `<button class="btn" onclick="desel()">✕</button>`;
+    btns.innerHTML = b;
   } else {
-    const city=G.cities.find(x=>x.id===sel.id);
+    const city = G.cities.find(x=>x.id===sel.id);
     if (!city) { G.sel=null; updatePanel(); return; }
-    title.textContent=`🏙 ${city.name}`;
-    const prodTxt=city.prod
+    title.textContent = `🏙 ${city.name}`;
+    const prodTxt = city.prod
       ? `${city.prod.startsWith('U:') ? UNITS[city.prod.slice(2)]?.name : BLDGS[city.prod]?.name} (${city.prodProg})`
       : 'Нет';
-    info.innerHTML=`👥${city.pop} | HP:${city.hp}/${city.maxHp} | 🏗${prodTxt}`;
-    btns.innerHTML=endBtn+techBtn
-      +`<button class="btn" onclick="openCity()">🏙 Строить</button>`
-      +`<button class="btn" onclick="desel()">✕</button>`;
+    info.innerHTML = `👥${city.pop} | HP:${city.hp}/${city.maxHp} | 🏗${prodTxt}`;
+    btns.innerHTML = endBtn + techBtn + diplBtn
+      + `<button class="btn" onclick="openCity()">🏙 Строить</button>`
+      + `<button class="btn" onclick="desel()">✕</button>`;
   }
 }
 
@@ -877,7 +1297,7 @@ function openTech() {
 
   let html = '<div style="color:#58a6ff;font-size:11px;margin-bottom:10px">🔬 Наука: <b>+' + sciPT + '/ход</b>';
   if (G.techQ) {
-    const t = TECHS.find(x => x.id === G.techQ);
+    const t = TECHS.find(x=>x.id===G.techQ);
     const turns = Math.max(1, Math.ceil((t.cost - G.sciProg) / sciPT));
     html += ' &nbsp;|&nbsp; ⏳ <b>' + t.name + '</b> ' + G.sciProg + '/' + t.cost + ' (~' + turns + ' ход)';
   }
@@ -885,21 +1305,23 @@ function openTech() {
 
   for (const t of TECHS) {
     const done  = G.techs.includes(t.id);
-    const avail = !done && t.pre.every(p => G.techs.includes(p));
-    const cur   = G.techQ === t.id;
-    const turns = (avail || cur) ? Math.max(1, Math.ceil((t.cost - (cur ? G.sciProg : 0)) / sciPT)) : null;
-    const cls   = 'list-item' + (done ? ' done' : (avail || cur) ? ' active' : ' locked');
-    const click = (avail && !cur) ? 'onclick="pickTech(\'' + t.id + '\')"' : '';
-    const status = done ? '✅' : cur ? '⏳' : avail ? '📖' : '🔒';
-    const iconTag = t.icon ? '<img src="sprites/sprite_' + t.icon[0] + '_' + t.icon[1] + '.png" width="40" height="40" style="flex-shrink:0;border-radius:6px">' : '<span>' + status + '</span>';
-    const prereq = t.pre.length ? ' · нужно: ' + t.pre.map(p => { const x = TECHS.find(x => x.id === p); return x ? x.name : p; }).join(', ') : '';
-    const turnsStr = turns ? ' · ~' + turns + ' ход' : '';
-    html += '<div class="' + cls + '" ' + click + ' style="gap:10px">'
-      + iconTag
-      + '<div style="flex:1;min-width:0"><b>' + t.name + '</b>'
-      + '<div style="font-size:11px;color:#8b949e">' + t.desc + prereq + turnsStr + '</div></div>'
-      + '<span class="cost" style="white-space:nowrap">' + status + ' ' + t.cost + '🔬</span>'
-      + '</div>';
+    const avail = !done && t.pre.every(p=>G.techs.includes(p));
+    const cur   = G.techQ===t.id;
+    const turns = (avail||cur) ? Math.max(1, Math.ceil((t.cost-(cur?G.sciProg:0))/sciPT)) : null;
+    const cls   = 'list-item'+(done?' done':(avail||cur)?' active':' locked');
+    const click = (avail&&!cur) ? 'onclick="pickTech(\''+t.id+'\')"' : '';
+    const status = done?'✅':cur?'⏳':avail?'📖':'🔒';
+    const iconTag = t.icon
+      ? '<img src="sprites/sprite_'+t.icon[0]+'_'+t.icon[1]+'.png" width="40" height="40" style="flex-shrink:0;border-radius:6px">'
+      : '<span>'+status+'</span>';
+    const prereq = t.pre.length?' · нужно: '+t.pre.map(p=>{const x=TECHS.find(x=>x.id===p);return x?x.name:p;}).join(', '):'';
+    const turnsStr = turns?' · ~'+turns+' ход':'';
+    html += '<div class="'+cls+'" '+click+' style="gap:10px">'
+      +iconTag
+      +'<div style="flex:1;min-width:0"><b>'+t.name+'</b>'
+      +'<div style="font-size:11px;color:#8b949e">'+t.desc+prereq+turnsStr+'</div></div>'
+      +'<span class="cost" style="white-space:nowrap">'+status+' '+t.cost+'🔬</span>'
+      +'</div>';
   }
   document.getElementById('modal-body').innerHTML = html;
   document.getElementById('modal').classList.add('show');
@@ -914,13 +1336,12 @@ function pickTech(id) {
 
 function openCity() {
   const sel = G.sel;
-  if (!sel || sel.type !== 'city') return;
+  if (!sel||sel.type!=='city') return;
   const city = G.cities.find(c=>c.id===sel.id);
   if (!city) return;
   document.getElementById('modal-title').textContent = `🏙 ${city.name}`;
   document.getElementById('modal-close').style.display = '';
 
-  // Production per turn for this city
   let prodPT = 1;
   for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
     const tc=city.c+dc, tr=city.r+dr;
@@ -929,19 +1350,18 @@ function openCity() {
   }
   for (const b of city.buildings) if (BLDGS[b]) prodPT += (BLDGS[b].prod||0);
 
-  const bldgNames = city.buildings.map(b=>BLDGS[b]?.name||b).join(', ') || 'нет';
+  const bldgNames = city.buildings.map(b=>BLDGS[b]?.name||b).join(', ')||'нет';
   let html = `<div style="color:#8b949e;font-size:11px;margin-bottom:10px">
     ⚒️ ~${prodPT}/ход &nbsp;|&nbsp; Здания: ${bldgNames}
   </div>`;
 
-  // Units
   html += `<div style="font-size:11px;color:#8b949e;margin:6px 0 4px">⚔️ Юниты</div>`;
   for (const [type, def] of Object.entries(UNITS)) {
     if (def.req && !G.techs.includes(def.req)) continue;
     const key  = `U:${type}`;
-    const cur  = city.prod === key;
+    const cur  = city.prod===key;
     const prog = cur ? city.prodProg : 0;
-    const turns = Math.max(1, Math.ceil((def.cost - prog) / prodPT));
+    const turns = Math.max(1, Math.ceil((def.cost-prog)/prodPT));
     html += `<div class="list-item${cur?' active':''}" onclick="setProd('${city.id}','${key}')" style="gap:10px">
       <img src="sprites/sprite_${def.sp[0]}_${def.sp[1]}.png" width="40" height="40" style="flex-shrink:0;border-radius:6px">
       <div style="flex:1">
@@ -952,16 +1372,15 @@ function openCity() {
     </div>`;
   }
 
-  // Buildings
   const availBldgs = Object.entries(BLDGS).filter(([type,def])=>
-    !(def.req && !G.techs.includes(def.req)) && !city.buildings.includes(type));
+    !(def.req&&!G.techs.includes(def.req)) && !city.buildings.includes(type));
   if (availBldgs.length) {
     html += `<div style="font-size:11px;color:#8b949e;margin:8px 0 4px">🏛 Здания</div>`;
     for (const [type, def] of availBldgs) {
-      const cur   = city.prod === type;
+      const cur   = city.prod===type;
       const prog  = cur ? city.prodProg : 0;
-      const turns = Math.max(1, Math.ceil((def.cost - prog) / prodPT));
-      const yields = [def.food?`🌾${def.food}`:'', def.prod?`⚒️${def.prod}`:'', def.gold?`💰${def.gold}`:'', def.sci?`🔬${def.sci}`:''].filter(Boolean).join(' ');
+      const turns = Math.max(1, Math.ceil((def.cost-prog)/prodPT));
+      const yields = [def.food?`🌾${def.food}`:'',def.prod?`⚒️${def.prod}`:'',def.gold?`💰${def.gold}`:'',def.sci?`🔬${def.sci}`:''].filter(Boolean).join(' ');
       html += `<div class="list-item${cur?' active':''}" onclick="setProd('${city.id}','${type}')" style="gap:10px">
         <img src="sprites/sprite_${def.sp[0]}_${def.sp[1]}.png" width="40" height="40" style="flex-shrink:0;border-radius:6px">
         <div style="flex:1">
@@ -978,7 +1397,7 @@ function openCity() {
 }
 
 function setProd(cityId, prod) {
-  const city=G.cities.find(c=>c.id==cityId);
+  const city = G.cities.find(c=>c.id==cityId);
   if (city) { city.prod=prod; city.prodProg=0; }
   closeModal(); updatePanel();
   toast(`🏗 Производство: ${prod.startsWith('U:') ? UNITS[prod.slice(2)]?.name : BLDGS[prod]?.name}`);
@@ -986,7 +1405,7 @@ function setProd(cityId, prod) {
 
 function closeModal() {
   document.getElementById('modal').classList.remove('show');
-  document.getElementById('modal-close').style.display='';
+  document.getElementById('modal-close').style.display = '';
 }
 
 /* ════════════════════════════════════════════
@@ -994,7 +1413,7 @@ function closeModal() {
 ════════════════════════════════════════════ */
 function doFoundCity() {
   if (!G.sel||G.sel.type!=='unit') return;
-  const u=G.units.find(x=>x.id===G.sel.id);
+  const u = G.units.find(x=>x.id===G.sel.id);
   if (u?.type==='SETTLER') foundCity(u);
 }
 function desel() { G.sel=null; updatePanel(); render(); }
@@ -1004,10 +1423,10 @@ function desel() { G.sel=null; updatePanel(); render(); }
 ════════════════════════════════════════════ */
 let toastTmr;
 function toast(msg) {
-  const el=document.getElementById('toast');
+  const el = document.getElementById('toast');
   el.textContent=msg; el.classList.add('show');
   clearTimeout(toastTmr);
-  toastTmr=setTimeout(()=>el.classList.remove('show'), 2800);
+  toastTmr = setTimeout(()=>el.classList.remove('show'), 2800);
 }
 
 /* ════════════════════════════════════════════
@@ -1047,41 +1466,44 @@ function handleTap(px, py) {
   const {col,row}=px2h(px,py);
   if (!inB(col,row)) return;
 
-  const pu=G.units.find(u=>u.c===col&&u.r===row);
-  const pc=G.cities.find(c=>c.c===col&&c.r===row);
-  const au=G.aUnits.find(u=>u.c===col&&u.r===row);
-  const ac=G.aCities.find(c=>c.c===col&&c.r===row);
-  const vis=G.vis[row][col];
+  const pu = G.units.find(u=>u.c===col&&u.r===row);
+  const pc = G.cities.find(c=>c.c===col&&c.r===row);
+  const au = G.aUnits.find(u=>u.c===col&&u.r===row);
+  const ac = G.aCities.find(c=>c.c===col&&c.r===row);
+  const vis = G.vis[row][col];
 
-  const sel=G.sel;
+  const sel = G.sel;
 
-  // ─── Selected unit: try to act ───
   if (sel?.type==='unit') {
-    const u=G.units.find(x=>x.id===sel.id);
+    const u = G.units.find(x=>x.id===sel.id);
     if (!u) { G.sel=null; updatePanel(); return; }
 
-    // Tap on own tile → deselect
     if (u.c===col&&u.r===row) { desel(); return; }
 
-    // Attack enemy unit (adjacent)
-    if (au && vis && u.movesLeft>0 && dist(u.c,u.r,col,row)<=1) {
+    // Cannot attack during peace (solo mode)
+    const canAttack = G.mode === 'hotseat' || G.atWar;
+
+    if (canAttack && au && vis && u.movesLeft>0 && dist(u.c,u.r,col,row)<=1) {
       doCombat(u,au,true); u.movesLeft=0;
       updateVis(); updateUI(); render(); return;
     }
-    // Attack enemy city (adjacent)
-    if (ac && vis && u.movesLeft>0 && dist(u.c,u.r,col,row)<=1 && u.type!=='SETTLER') {
+    if (canAttack && ac && vis && u.movesLeft>0 && dist(u.c,u.r,col,row)<=1 && u.type!=='SETTLER') {
       attackCity(u,ac,true);
       updateVis(); updateUI(); render(); return;
     }
-    // Move
+
+    // Peace hint
+    if (!canAttack && (au||ac) && vis && dist(u.c,u.r,col,row)<=1) {
+      toast('🕊️ Нарушьте мир, чтобы атаковать');
+      return;
+    }
+
     if (!pu && !pc && u.movesLeft>0) {
-      const t=G.map[row][col];
-      const mv=TERRAIN[t.t].move;
+      const t = G.map[row][col];
+      const mv = TERRAIN[t.t].move;
       if (mv<9) {
-        // One-step greedy move towards clicked tile
         let targetC=col, targetR=row;
         if (dist(u.c,u.r,col,row)>1) {
-          // Multi-step: find best adjacent
           let best=null, bestD=dist(u.c,u.r,col,row);
           for (const nb of neighbors(u.c,u.r)) {
             if (!inB(nb.col,nb.row)) continue;
@@ -1104,7 +1526,6 @@ function handleTap(px, py) {
     desel(); return;
   }
 
-  // ─── No selection: select something ───
   if (pu) {
     G.sel={type:'unit',id:pu.id};
     updatePanel(); render(); return;
@@ -1121,7 +1542,8 @@ function handleTap(px, py) {
 ════════════════════════════════════════════ */
 window.addEventListener('resize', sizeCanvas);
 sizeCanvas();
-initGame();
+// Show menu on load; initGame() is called from startGame()
+showMenu();
 </script>
 </body>
 </html>
