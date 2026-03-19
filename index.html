@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mini Civilization</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* ─── TOP BAR ─── */
+    #top-bar {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    #turn-label { color: #8b949e; font-size: 11px; }
+    .res { display: flex; align-items: center; gap: 3px; }
+    .res span:first-child { font-size: 14px; }
+
+    /* ─── CANVAS ─── */
+    #canvas-wrap {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      min-height: 0;
+    }
+    #gc { display: block; cursor: pointer; touch-action: none; }
+
+    /* ─── BOTTOM PANEL ─── */
+    #bot {
+      background: #161b22;
+      border-top: 1px solid #30363d;
+      padding: 6px 8px;
+      flex-shrink: 0;
+      min-height: 72px;
+    }
+    #bot-title { font-size: 11px; color: #8b949e; margin-bottom: 4px; }
+    #bot-info  { font-size: 12px; margin-bottom: 5px; min-height: 16px; }
+    #bot-btns  { display: flex; gap: 5px; flex-wrap: wrap; }
+    .btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      font-family: inherit;
+      transition: background .15s;
+    }
+    .btn:active { background: #388bfd44; border-color: #388bfd; }
+    .btn-primary {
+      background: #238636;
+      border-color: #2ea043;
+      font-weight: bold;
+    }
+    .btn-primary:active { background: #2ea043; }
+    .btn-danger { border-color: #da3633; }
+
+    /* ─── MODAL ─── */
+    #modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.75);
+      z-index: 50;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #modal.show { display: flex; }
+    #modal-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px 12px 0 0;
+      padding: 16px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    #modal-box h3 { color: #58a6ff; margin-bottom: 10px; font-size: 15px; }
+    .list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background .1s;
+    }
+    .list-item:hover, .list-item:active { background: #21262d; }
+    .list-item.active  { border-color: #388bfd; }
+    .list-item.done    { opacity: .45; cursor: default; }
+    .list-item.locked  { opacity: .35; cursor: default; }
+    .list-item .cost   { margin-left: auto; color: #8b949e; white-space: nowrap; }
+    .modal-close {
+      display: block; width: 100%; margin-top: 10px;
+      background: #21262d; border: 1px solid #30363d;
+      color: #e6edf3; padding: 7px; border-radius: 6px;
+      cursor: pointer; font-family: inherit; font-size: 13px;
+    }
+
+    /* ─── TOAST ─── */
+    #toast {
+      position: fixed;
+      top: 55px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(22,27,34,.92);
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .25s;
+      z-index: 100;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div id="top-bar">
+  <span id="turn-label">Ход 1</span>
+  <span class="res">🌾<span id="r-food">10</span></span>
+  <span class="res">⚒️<span id="r-prod">10</span></span>
+  <span class="res">💰<span id="r-gold">10</span></span>
+  <span class="res">🔬<span id="r-sci">0</span></span>
+  <span class="res" id="tech-status" style="color:#58a6ff"></span>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="gc"></canvas>
+</div>
+
+<div id="bot">
+  <div id="bot-title">Кликните на юнит или город</div>
+  <div id="bot-info"></div>
+  <div id="bot-btns">
+    <button class="btn btn-primary" onclick="endTurn()">Конец хода ▶</button>
+    <button class="btn" onclick="openTech()">🔬 Наука</button>
+  </div>
+</div>
+
+<div id="modal">
+  <div id="modal-box">
+    <h3 id="modal-title">...</h3>
+    <div id="modal-body"></div>
+    <button id="modal-close" class="modal-close" onclick="closeModal()">Закрыть</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════
+   TELEGRAM INIT
+════════════════════════════════════════════ */
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+/* ════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════ */
+const MAP_COLS  = 14;
+const MAP_ROWS  = 9;
+const HEX_R     = 28;
+const HEX_W     = Math.round(Math.sqrt(3) * HEX_R);   // ~49
+const HEX_H     = HEX_R * 2;  // 56
+
+/* ─── Sprite map [row, col] → sprites/sprite_R_C.png ─── */
+// Row 0: units (green/red/blue hex bg)
+// Row 1: buildings
+// Row 2: terrain
+// Row 3: resources
+// Row 4: yield icons
+// Row 5: combat icons
+const SP = {
+  // Row 0 – Units
+  SETTLER:   [0,0],  WARRIOR:   [0,1],  ARCHER:    [0,2],
+  SPEARMAN:  [0,3],  CAVALRY:   [0,4],  KNIGHT:    [0,5],
+  CHARIOT:   [0,6],  CATAPULT:  [0,7],  LEGIONARY: [0,8],
+  ENEMY_U:   [0,9],  SWORDS:    [0,11], HOURGLASS: [0,12],
+  // Row 1 – Buildings
+  CITY1:     [1,0],  CITY2:     [1,1],  HOUSE:     [1,2],
+  MARKET_B:  [1,3],  GRANARY_B: [1,4],  LIBRARY_B: [1,5],
+  TEMPLE:    [1,6],  STALL:     [1,7],  TOWER:     [1,8],
+  FORTRESS:  [1,9],
+  // Row 2 – Terrain
+  PLAINS:    [2,0],  GRASS:     [2,1],  SHRUB:     [2,2],
+  FOREST:    [2,3],  HILLS:     [2,4],  MOUNTAIN:  [2,5],
+  DESERT:    [2,6],  TUNDRA:    [2,7],  OCEAN:     [2,8],
+  COAST:     [2,9],  JUNGLE:    [2,10],
+  // Row 3 – Resources
+  WHEAT:     [3,0],  IRON:      [3,1],  HORSE:     [3,2],
+  MARBLE:    [3,3],  COAL:      [3,4],  LUMBER:    [3,5],
+  WINE:      [3,6],  WHALE:     [3,7],  FISH:      [3,8],
+  // Row 4 – Yields
+  FLASK:     [4,0],  TOOLS:     [4,1],  COIN:      [4,2],
+  GEM:       [4,3],  ATOM:      [4,4],
+  // Row 5 – Combat
+  COMBAT:    [5,0],
+};
+
+/* ─── Terrain definitions ─── */
+const TERRAIN = {
+  GRASS:    { sp: SP.GRASS,    move:1, food:2, prod:1, gold:0, name:'Равнина' },
+  PLAINS:   { sp: SP.PLAINS,   move:1, food:1, prod:0, gold:1, name:'Степь'   },
+  FOREST:   { sp: SP.FOREST,   move:2, food:1, prod:2, gold:0, name:'Лес'     },
+  HILLS:    { sp: SP.HILLS,    move:2, food:0, prod:3, gold:0, name:'Холмы'   },
+  MOUNTAIN: { sp: SP.MOUNTAIN, move:9, food:0, prod:0, gold:0, name:'Горы'    },
+  DESERT:   { sp: SP.DESERT,   move:1, food:0, prod:0, gold:2, name:'Пустыня' },
+  TUNDRA:   { sp: SP.TUNDRA,   move:1, food:1, prod:0, gold:0, name:'Тундра'  },
+  OCEAN:    { sp: SP.OCEAN,    move:9, food:0, prod:0, gold:0, name:'Океан'   },
+  COAST:    { sp: SP.COAST,    move:1, food:2, prod:0, gold:1, name:'Берег'   },
+};
+
+/* ─── Resources ─── */
+const RES_DEF = {
+  WHEAT: { sp:SP.WHEAT, food:2, prod:0, gold:0, name:'Пшеница' },
+  IRON:  { sp:SP.IRON,  food:0, prod:2, gold:0, name:'Железо'  },
+  HORSE: { sp:SP.HORSE, food:0, prod:0, gold:2, name:'Лошади'  },
+  FISH:  { sp:SP.FISH,  food:2, prod:0, gold:1, name:'Рыба'    },
+  WINE:  { sp:SP.WINE,  food:1, prod:0, gold:2, name:'Вино'    },
+};
+
+/* ─── Unit types ─── */
+const UNITS = {
+  SETTLER:  { sp:SP.SETTLER,   move:2, str:0,  cost:60, hp:10, name:'Поселенец' },
+  WARRIOR:  { sp:SP.WARRIOR,   move:2, str:8,  cost:25, hp:10, name:'Воин'      },
+  ARCHER:   { sp:SP.ARCHER,    move:2, str:12, cost:35, hp:8,  req:'bronze',     name:'Лучник'   },
+  KNIGHT:   { sp:SP.KNIGHT,    move:3, str:20, cost:65, hp:12, req:'horseback',  name:'Рыцарь'   },
+  CATAPULT: { sp:SP.CATAPULT,  move:2, str:8,  cost:80, hp:8,  req:'mathematics',name:'Катапульта'},
+};
+
+/* ─── Building types ─── */
+const BLDGS = {
+  GRANARY:  { sp:SP.GRANARY_B, food:2, prod:0, gold:0, sci:0, cost:35, name:'Амбар' },
+  MARKET:   { sp:SP.MARKET_B,  food:0, prod:0, gold:3, sci:0, cost:45, req:'writing', name:'Рынок' },
+  LIBRARY:  { sp:SP.LIBRARY_B, food:0, prod:0, gold:0, sci:3, cost:40, req:'writing', name:'Библиотека' },
+  BARRACKS: { sp:SP.FORTRESS,  food:0, prod:2, gold:0, sci:0, cost:50, req:'bronze', name:'Казармы' },
+};
+
+/* ─── Technologies ─── */
+const TECHS = [
+  { id:'agriculture', name:'Земледелие',    cost:20, icon:SP.WHEAT,    pre:[],                        desc:'+2🌾 от амбаров' },
+  { id:'mining',      name:'Горное дело',   cost:25, icon:SP.IRON,     pre:[],                        desc:'+2⚒️ от казарм' },
+  { id:'writing',     name:'Письменность',  cost:35, icon:SP.LIBRARY_B,pre:['agriculture'],            desc:'Открывает Рынок и Библиотеку' },
+  { id:'bronze',      name:'Бронзовое дело',cost:35, icon:SP.WARRIOR,  pre:['mining'],                 desc:'Открывает лучников и казармы' },
+  { id:'sailing',     name:'Мореплавание',  cost:40, icon:SP.COAST,    pre:['agriculture'],            desc:'Открывает берег для движения' },
+  { id:'horseback',   name:'Верховая езда', cost:55, icon:SP.CAVALRY,  pre:['agriculture','bronze'],   desc:'Открывает рыцарей' },
+  { id:'mathematics', name:'Математика',    cost:65, icon:SP.CATAPULT, pre:['writing','bronze'],       desc:'Открывает катапульты' },
+];
+
+/* ════════════════════════════════════════════
+   GAME STATE
+════════════════════════════════════════════ */
+let G = {};
+
+function freshState() {
+  return {
+    turn: 1,
+    over: false,
+    sel: null,           // {type:'unit'|'city', id}
+    res: { food:10, prod:10, gold:10, sci:0 },
+    sciProg: 0,
+    techQ: null,         // current research id
+    techs: [],           // researched tech ids
+    map: [],
+    vis: [],
+    seen: [],
+    cities: [],          // player cities
+    units: [],           // player units
+    aCities: [],         // AI cities
+    aUnits: [],          // AI units
+    camX: 0,
+    camY: 0,
+    nextId: 100,
+  };
+}
+
+function newId() { return ++G.nextId; }
+
+/* ════════════════════════════════════════════
+   MAP GENERATION
+════════════════════════════════════════════ */
+function genMap() {
+  const map  = [], vis = [], seen = [];
+  for (let r = 0; r < MAP_ROWS; r++) {
+    map[r] = []; vis[r] = []; seen[r] = [];
+    for (let c = 0; c < MAP_COLS; c++) {
+      const n = Math.random();
+      let t;
+      if      (n < .10) t = 'OCEAN';
+      else if (n < .17) t = 'COAST';
+      else if (n < .28) t = 'FOREST';
+      else if (n < .38) t = 'HILLS';
+      else if (n < .45) t = 'MOUNTAIN';
+      else if (n < .51) t = 'DESERT';
+      else if (n < .56) t = 'TUNDRA';
+      else              t = 'GRASS';
+      map[r][c] = { t, res: null };
+      vis[r][c]  = false;
+      seen[r][c] = false;
+    }
+  }
+  // Scatter resources
+  const resKeys = Object.keys(RES_DEF);
+  for (let i = 0; i < 18; i++) {
+    const r = rnd(MAP_ROWS), c = rnd(MAP_COLS);
+    if (map[r][c].t !== 'MOUNTAIN' && map[r][c].t !== 'OCEAN')
+      map[r][c].res = resKeys[rnd(resKeys.length)];
+  }
+  return { map, vis, seen };
+}
+
+/* ════════════════════════════════════════════
+   HEX UTILS
+════════════════════════════════════════════ */
+function h2px(col, row) {
+  return {
+    x: HEX_W * col + (row & 1) * HEX_W / 2 + HEX_W / 2 + G.camX,
+    y: HEX_H * .75 * row + HEX_R + G.camY,
+  };
+}
+function px2h(px, py) {
+  px -= G.camX; py -= G.camY;
+  const row = Math.round((py - HEX_R) / (HEX_H * .75));
+  const col = Math.round((px - (row & 1) * HEX_W / 2 - HEX_W / 2) / HEX_W);
+  return { col, row };
+}
+function neighbors(col, row) {
+  return (row & 1)
+    ? [{col:col-1,row},{col:col+1,row},{col,row:row-1},{col:col+1,row:row-1},{col,row:row+1},{col:col+1,row:row+1}]
+    : [{col:col-1,row},{col:col+1,row},{col:col-1,row:row-1},{col,row:row-1},{col:col-1,row:row+1},{col,row:row+1}];
+}
+function dist(c1,r1,c2,r2) {
+  const x1=c1-(r1-(r1&1))/2, z1=r1, y1=-x1-z1;
+  const x2=c2-(r2-(r2&1))/2, z2=r2, y2=-x2-z2;
+  return Math.max(Math.abs(x1-x2),Math.abs(y1-y2),Math.abs(z1-z2));
+}
+function inB(c,r) { return c>=0&&c<MAP_COLS&&r>=0&&r<MAP_ROWS; }
+function rnd(n) { return Math.floor(Math.random()*n); }
+
+/* ════════════════════════════════════════════
+   VISIBILITY
+════════════════════════════════════════════ */
+function updateVis() {
+  for (let r=0;r<MAP_ROWS;r++) for (let c=0;c<MAP_COLS;c++) G.vis[r][c]=false;
+  const src = [
+    ...G.units.map(u=>({c:u.c,r:u.r,range:2})),
+    ...G.cities.map(city=>({c:city.c,r:city.r,range:3})),
+  ];
+  for (const {c,r,range} of src)
+    for (let rr=0;rr<MAP_ROWS;rr++) for (let cc=0;cc<MAP_COLS;cc++)
+      if (dist(c,r,cc,rr)<=range) { G.vis[rr][cc]=true; G.seen[rr][cc]=true; }
+}
+
+/* ════════════════════════════════════════════
+   CANVAS & RENDERING
+════════════════════════════════════════════ */
+const canvas = document.getElementById('gc');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+// Lazy sprite cache — loads sprites/sprite_R_C.png on demand
+const _sprCache = {};
+function getSprite(row, col) {
+  const key = `${row}_${col}`;
+  if (!_sprCache[key]) {
+    const im = new Image();
+    im.src = `sprites/sprite_${row}_${col}.png`;
+    im.onload = () => render();
+    _sprCache[key] = im;
+  }
+  return _sprCache[key];
+}
+
+function spr([row, col], x, y, size, noClip) {
+  const im = getSprite(row, col);
+  if (!im.complete || !im.naturalWidth) return;
+  if (noClip) {
+    ctx.drawImage(im, x - size/2, y - size/2, size, size);
+  } else {
+    ctx.save();
+    hexPath(x, y, HEX_R);
+    ctx.clip();
+    ctx.drawImage(im, x - size/2, y - size/2, size, size);
+    ctx.restore();
+  }
+}
+
+function sizeCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  render();
+}
+
+function hexPath(x, y, r) {
+  ctx.beginPath();
+  for (let i=0;i<6;i++) {
+    const a = Math.PI/3*i - Math.PI/6;
+    i===0 ? ctx.moveTo(x+r*Math.cos(a), y+r*Math.sin(a))
+           : ctx.lineTo(x+r*Math.cos(a), y+r*Math.sin(a));
+  }
+  ctx.closePath();
+}
+
+function render() {
+  if (!canvas.width || !G.map) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#111820';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Sprites are 96×102px with white bg — clip to hex, draw at 72px
+  // (scaled so the hex icon inside fills the HEX_R=28 clip area)
+  const S = 72;
+
+  for (let r=0;r<MAP_ROWS;r++) for (let c=0;c<MAP_COLS;c++) {
+    const {x,y} = h2px(c,r);
+    if (x < -S || x > canvas.width+S) continue;
+    if (y < -S || y > canvas.height+S) continue;
+
+    const tile = G.map[r][c];
+    const seen = G.seen[r][c];
+    const vis  = G.vis[r][c];
+
+    if (!seen) continue;   // just show dark background for unseen
+
+    // ── Terrain ──
+    spr(TERRAIN[tile.t].sp, x, y, S);
+
+    // ── Fog overlay for explored-but-not-visible tiles ──
+    if (!vis) {
+      hexPath(x, y, HEX_R - 1);
+      ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fill();
+    }
+
+    // ── Resource (visible only) ──
+    if (vis && tile.res) {
+      spr(RES_DEF[tile.res].sp, x, y, S);
+    }
+
+    // ── Player city ──
+    const pc = G.cities.find(ci=>ci.c===c&&ci.r===r);
+    if (pc) {
+      spr(pc.pop>=4 ? SP.CITY2 : SP.CITY1, x, y, S);
+      ctx.fillStyle='#fff'; ctx.font='bold 8px monospace'; ctx.textAlign='center';
+      ctx.fillText(pc.name, x, y+HEX_R+10);
+      if (pc.hp < pc.maxHp) drawHPbar(x, y, pc.hp, pc.maxHp);
+    }
+
+    // ── AI city (seen) ──
+    const ac = G.aCities.find(ci=>ci.c===c&&ci.r===r);
+    if (ac) {
+      spr(SP.FORTRESS, x, y, S);
+      if (vis) {
+        ctx.fillStyle='#ff6b6b'; ctx.font='bold 8px monospace'; ctx.textAlign='center';
+        ctx.fillText(ac.name, x, y+HEX_R+10);
+        if (ac.hp < ac.maxHp) drawHPbar(x, y, ac.hp, ac.maxHp);
+      }
+    }
+
+    // ── Player unit ──
+    const pu = G.units.find(u=>u.c===c&&u.r===r);
+    if (pu) {
+      spr(UNITS[pu.type].sp, x, y, S);
+      if (pu.hp < pu.maxHp) drawHPbar(x, y, pu.hp, pu.maxHp);
+      if (pu.movesLeft <= 0) {
+        ctx.save(); ctx.globalAlpha=.4;
+        hexPath(x,y,HEX_R-1); ctx.fillStyle='#000'; ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // ── AI unit (visible only) ──
+    const au = G.aUnits.find(u=>u.c===c&&u.r===r);
+    if (au && vis) {
+      spr(SP.ENEMY_U, x, y, S);
+      if (au.hp < au.maxHp) drawHPbar(x, y, au.hp, au.maxHp);
+    }
+
+    // ── Selection ring & reachable highlight ──
+    const sel = G.sel;
+    if (sel) {
+      let selC, selR;
+      if (sel.type==='unit') {
+        const u=G.units.find(u=>u.id===sel.id);
+        if (u) { selC=u.c; selR=u.r; }
+      } else {
+        const ci=G.cities.find(ci=>ci.id===sel.id);
+        if (ci) { selC=ci.c; selR=ci.r; }
+      }
+      if (selC===c && selR===r) {
+        hexPath(x,y,HEX_R-1);
+        ctx.strokeStyle='#ffd700'; ctx.lineWidth=2.5; ctx.stroke();
+      }
+      if (sel.type==='unit') {
+        const u=G.units.find(u=>u.id===sel.id);
+        if (u && u.movesLeft>0 && !(selC===c&&selR===r)) {
+          const td=dist(u.c,u.r,c,r);
+          const mv=TERRAIN[tile.t].move;
+          if (td>=1 && td<=u.movesLeft && mv<9 && !G.units.find(x=>x.c===c&&x.r===r)) {
+            hexPath(x,y,HEX_R-2);
+            ctx.fillStyle='rgba(56,139,253,.2)'; ctx.fill();
+            ctx.strokeStyle='rgba(56,139,253,.7)'; ctx.lineWidth=1.5; ctx.stroke();
+          }
+        }
+      }
+    }
+  }
+}
+
+function drawHPbar(x, y, hp, maxHp) {
+  const w = HEX_R*1.3, bh=4;
+  ctx.fillStyle='#333';
+  ctx.fillRect(x-w/2, y-HEX_R-6, w, bh);
+  ctx.fillStyle = hp/maxHp>.6 ? '#3fb950' : hp/maxHp>.3 ? '#e3b341' : '#f85149';
+  ctx.fillRect(x-w/2, y-HEX_R-6, w*(hp/maxHp), bh);
+}
+
+/* ════════════════════════════════════════════
+   GAME INIT
+════════════════════════════════════════════ */
+function initGame() {
+  G = freshState();
+  const {map,vis,seen} = genMap();
+  G.map=map; G.vis=vis; G.seen=seen;
+
+  // Ensure player start is passable
+  const sc=2, sr=2;
+  G.map[sr][sc].t='GRASS';
+  G.map[sr+1][sc].t='GRASS';
+  G.map[sr][sc+1].t='GRASS';
+
+  G.units = [
+    {id:newId(), type:'SETTLER', c:sc,   r:sr,   hp:10, maxHp:10, movesLeft:2},
+    {id:newId(), type:'WARRIOR', c:sc+1, r:sr,   hp:10, maxHp:10, movesLeft:2},
+  ];
+
+  // AI start
+  const ac=MAP_COLS-4, ar=MAP_ROWS-3;
+  G.map[ar][ac].t='GRASS';
+  G.aCities = [{
+    id:newId(), name:'Вавилон', c:ac, r:ar,
+    hp:20, maxHp:20, pop:1, prod:null, prodProg:0, buildings:[], foodStock:0,
+  }];
+  G.aUnits = [
+    {id:newId(), type:'WARRIOR', c:ac-1, r:ar,   hp:10, maxHp:10, movesLeft:2},
+    {id:newId(), type:'WARRIOR', c:ac+1, r:ar-1, hp:10, maxHp:10, movesLeft:2},
+  ];
+
+  // Center camera
+  const {x,y} = h2px(sc,sr);
+  G.camX = canvas.width/2 - x;
+  G.camY = canvas.height/2 - y;
+
+  updateVis();
+  updateUI();
+  render();
+}
+
+/* ════════════════════════════════════════════
+   CITY FOUNDING & MANAGEMENT
+════════════════════════════════════════════ */
+const CITY_NAMES = ['Рим','Афины','Москва','Киев','Самарканд',
+                    'Пекин','Новгород','Дели','Мемфис','Карфаген'];
+function foundCity(unit) {
+  const used = G.cities.map(ci=>ci.name);
+  const name = CITY_NAMES.find(n=>!used.includes(n)) || `Город${G.cities.length+1}`;
+  G.cities.push({
+    id:newId(), name, c:unit.c, r:unit.r,
+    hp:20, maxHp:20, pop:1, buildings:[], prod:null, prodProg:0, foodStock:0,
+  });
+  G.units = G.units.filter(u=>u.id!==unit.id);
+  G.sel = null;
+  toast(`🏛 ${name} основан!`);
+  updateVis(); updateUI(); render();
+}
+
+function collectYields() {
+  let totFood=0, totProd=0, totGold=0, totSci=0;
+  for (const city of G.cities) {
+    let cf=2, cp=1, cg=1, cs=0;
+    for (let rr=-2;rr<=2;rr++) for (let cc=-2;cc<=2;cc++) {
+      const tc=city.c+cc, tr=city.r+rr;
+      if (!inB(tc,tr)) continue;
+      if (dist(city.c,city.r,tc,tr)>1) continue;
+      const t=TERRAIN[G.map[tr][tc].t];
+      cf+=t.food; cp+=t.prod; cg+=t.gold;
+      const res=G.map[tr][tc].res;
+      if (res) { cf+=RES_DEF[res].food; cp+=RES_DEF[res].prod; cg+=RES_DEF[res].gold; }
+    }
+    for (const b of city.buildings) {
+      cf+=BLDGS[b].food; cg+=BLDGS[b].gold; cs+=BLDGS[b].sci;
+    }
+    totFood+=cf; totProd+=cp; totGold+=cg; totSci+=cs;
+
+    // City production
+    if (city.prod) {
+      city.prodProg+=cp;
+      const prodCost = city.prod.startsWith('U:')
+        ? UNITS[city.prod.slice(2)]?.cost
+        : BLDGS[city.prod]?.cost;
+      if (prodCost && city.prodProg>=prodCost) finishProd(city);
+    }
+    // City growth
+    city.foodStock+=cf;
+    const growNeed=city.pop*15;
+    if (city.foodStock>=growNeed) {
+      city.pop++; city.foodStock=0;
+      toast(`👥 ${city.name} растёт!`);
+    }
+  }
+  G.res.food+=totFood; G.res.prod+=totProd;
+  G.res.gold+=totGold; G.res.sci+=totSci;
+
+  // Research
+  if (G.techQ) {
+    G.sciProg+=totSci+1;
+    const tech=TECHS.find(t=>t.id===G.techQ);
+    if (tech && G.sciProg>=tech.cost) {
+      G.techs.push(G.techQ); G.techQ=null; G.sciProg=0;
+      toast(`🔬 Исследовано: ${tech.name}!`);
+    }
+  }
+}
+
+function finishProd(city) {
+  if (city.prod.startsWith('U:')) {
+    const type=city.prod.slice(2);
+    G.units.push({id:newId(),type,c:city.c,r:city.r,
+      hp:UNITS[type].hp,maxHp:UNITS[type].hp,movesLeft:UNITS[type].move});
+    toast(`⚔️ ${city.name}: создан ${UNITS[type].name}!`);
+  } else {
+    city.buildings.push(city.prod);
+    toast(`🏛 ${city.name}: построено ${BLDGS[city.prod].name}!`);
+  }
+  city.prod=null; city.prodProg=0;
+}
+
+/* ════════════════════════════════════════════
+   COMBAT
+════════════════════════════════════════════ */
+function doCombat(atk, def, isPlayer) {
+  const aStr=UNITS[atk.type]?.str||5;
+  const dStr=UNITS[def.type]?.str||5;
+  const aDmg=Math.max(1, Math.round(aStr*(Math.random()*.5+.75)));
+  const dDmg=Math.max(1, Math.round(dStr*(Math.random()*.3+.35)));
+  def.hp-=aDmg; atk.hp-=dDmg;
+
+  if (def.hp<=0) {
+    if (isPlayer) {
+      G.aUnits=G.aUnits.filter(u=>u.id!==def.id);
+      toast('💀 Враг уничтожен!');
+      atk.c=def.c; atk.r=def.r;
+    } else {
+      G.units=G.units.filter(u=>u.id!==def.id);
+      if (G.sel?.id===def.id) G.sel=null;
+      toast('☠️ Ваш юнит уничтожен!');
+    }
+  }
+  if (atk.hp<=0) {
+    if (isPlayer) {
+      G.units=G.units.filter(u=>u.id!==atk.id);
+      if (G.sel?.id===atk.id) G.sel=null;
+    } else {
+      G.aUnits=G.aUnits.filter(u=>u.id!==atk.id);
+    }
+  }
+}
+
+function attackCity(unit, city, isPlayerAttacking) {
+  const str=UNITS[unit.type]?.str||5;
+  const dmg=Math.max(2, Math.round(str*(Math.random()*.4+.8)));
+  city.hp-=dmg;
+  unit.movesLeft=0;
+  if (city.hp<=0) {
+    if (isPlayerAttacking) {
+      toast(`🏆 ${city.name} захвачен! +30💰`);
+      G.aCities=G.aCities.filter(c=>c.id!==city.id);
+      G.res.gold+=30;
+      unit.c=city.c; unit.r=city.r;
+    } else {
+      toast(`💥 ${city.name} пал!`);
+      G.cities=G.cities.filter(c=>c.id!==city.id);
+    }
+  } else {
+    if (isPlayerAttacking)
+      toast(`⚔️ Атака ${city.name}: ${city.hp}/${city.maxHp}HP`);
+  }
+}
+
+/* ════════════════════════════════════════════
+   AI TURN
+════════════════════════════════════════════ */
+function aiTurn() {
+  // AI unit actions
+  for (const u of [...G.aUnits]) {
+    u.movesLeft = UNITS[u.type]?.move||2;
+    if (!G.aUnits.includes(u)) continue;
+
+    // Find closest target
+    let tc=null, tr=null, td=Infinity;
+    for (const pu of G.units)   { const d=dist(u.c,u.r,pu.c,pu.r); if(d<td){td=d;tc=pu.c;tr=pu.r;} }
+    for (const pc of G.cities)  { const d=dist(u.c,u.r,pc.c,pc.r); if(d<td){td=d;tc=pc.c;tr=pc.r;} }
+    if (tc===null) continue;
+
+    let moves=u.movesLeft;
+    while (moves>0) {
+      const nbs=neighbors(u.c,u.r);
+      let best=null, bestD=dist(u.c,u.r,tc,tr);
+
+      for (const nb of nbs) {
+        if (!inB(nb.col,nb.row)) continue;
+        const tt=TERRAIN[G.map[nb.row][nb.col].t];
+        if (tt.move>=9) continue;
+
+        // Attack player unit
+        const pu=G.units.find(x=>x.c===nb.col&&x.r===nb.row);
+        if (pu) { doCombat(u,pu,false); moves=0; break; }
+
+        // Attack player city
+        const pc=G.cities.find(x=>x.c===nb.col&&x.r===nb.row);
+        if (pc) { attackCity(u,pc,false); moves=0; break; }
+
+        const fri=G.aUnits.find(x=>x.c===nb.col&&x.r===nb.row&&x.id!==u.id);
+        if (fri) continue;
+
+        const d=dist(nb.col,nb.row,tc,tr);
+        if (d<bestD) { bestD=d; best=nb; }
+      }
+      if (moves>0 && best) {
+        const mv=TERRAIN[G.map[best.row][best.col].t].move;
+        u.c=best.col; u.r=best.row; moves-=mv;
+      } else { break; }
+    }
+  }
+
+  // AI city production (simple: produce warrior every N turns)
+  for (const city of G.aCities) {
+    city.prodProg=(city.prodProg||0)+3;
+    if (city.prodProg>=25) {
+      G.aUnits.push({id:newId(),type:'WARRIOR',c:city.c,r:city.r,hp:10,maxHp:10,movesLeft:2});
+      city.prodProg=0;
+    }
+  }
+}
+
+/* ════════════════════════════════════════════
+   TURN END
+════════════════════════════════════════════ */
+function endTurn() {
+  if (G.over) return;
+  collectYields();
+  // Restore unit moves + heal
+  for (const u of G.units) {
+    u.movesLeft=UNITS[u.type]?.move||2;
+    if (u.hp<u.maxHp) u.hp=Math.min(u.maxHp, u.hp+1);
+  }
+  G.turn++;
+  aiTurn();
+  checkWinLose();
+  updateVis(); updateUI(); render();
+}
+
+function checkWinLose() {
+  if (G.aCities.length===0 && G.aUnits.length===0) { gameOver(true); return; }
+  if (G.cities.length===0 && G.units.length===0)   { gameOver(false); }
+}
+
+function gameOver(win) {
+  G.over=true;
+  document.getElementById('modal-title').textContent = win ? '🏆 Победа!' : '☠️ Поражение';
+  document.getElementById('modal-body').innerHTML = `
+    <p style="margin:10px 0;font-size:14px">${win
+      ? 'Вы сокрушили всех врагов!'
+      : 'Ваша цивилизация пала...'}</p>
+    <p>Ход: ${G.turn} | Городов: ${G.cities.length}</p>
+    <button class="btn btn-primary" style="width:100%;margin-top:12px"
+      onclick="location.reload()">Играть снова</button>`;
+  document.getElementById('modal-close').style.display='none';
+  document.getElementById('modal').classList.add('show');
+}
+
+/* ════════════════════════════════════════════
+   UI UPDATES
+════════════════════════════════════════════ */
+function updateUI() {
+  document.getElementById('turn-label').textContent=`Ход ${G.turn}`;
+  document.getElementById('r-food').textContent=G.res.food;
+  document.getElementById('r-prod').textContent=G.res.prod;
+  document.getElementById('r-gold').textContent=G.res.gold;
+  document.getElementById('r-sci').textContent=G.res.sci;
+  const ts=document.getElementById('tech-status');
+  if (G.techQ) {
+    const t=TECHS.find(x=>x.id===G.techQ);
+    ts.textContent=`📖 ${t.name} ${G.sciProg}/${t.cost}`;
+  } else ts.textContent='';
+  updatePanel();
+}
+
+function updatePanel() {
+  const title=document.getElementById('bot-title');
+  const info=document.getElementById('bot-info');
+  const btns=document.getElementById('bot-btns');
+  const sel=G.sel;
+
+  const endBtn=`<button class="btn btn-primary" onclick="endTurn()">Конец хода ▶</button>`;
+  const techBtn=`<button class="btn" onclick="openTech()">🔬 Наука</button>`;
+
+  if (!sel) {
+    title.textContent='Кликните на юнит или город';
+    info.innerHTML='';
+    btns.innerHTML=endBtn+techBtn;
+    return;
+  }
+  if (sel.type==='unit') {
+    const u=G.units.find(x=>x.id===sel.id);
+    if (!u) { G.sel=null; updatePanel(); return; }
+    const def=UNITS[u.type];
+    title.textContent=`⚔️ ${def.name}`;
+    info.innerHTML=`❤️${u.hp}/${u.maxHp} ⚡${u.movesLeft}/${def.move} ⚔️${def.str}`;
+    let b=endBtn+techBtn;
+    if (u.type==='SETTLER' && !G.cities.find(c=>c.c===u.c&&c.r===u.r))
+      b+=`<button class="btn" onclick="doFoundCity()">🏛 Основать</button>`;
+    b+=`<button class="btn" onclick="desel()">✕</button>`;
+    btns.innerHTML=b;
+  } else {
+    const city=G.cities.find(x=>x.id===sel.id);
+    if (!city) { G.sel=null; updatePanel(); return; }
+    title.textContent=`🏙 ${city.name}`;
+    const prodTxt=city.prod
+      ? `${city.prod.startsWith('U:') ? UNITS[city.prod.slice(2)]?.name : BLDGS[city.prod]?.name} (${city.prodProg})`
+      : 'Нет';
+    info.innerHTML=`👥${city.pop} | HP:${city.hp}/${city.maxHp} | 🏗${prodTxt}`;
+    btns.innerHTML=endBtn+techBtn
+      +`<button class="btn" onclick="openCity()">🏙 Строить</button>`
+      +`<button class="btn" onclick="desel()">✕</button>`;
+  }
+}
+
+/* ════════════════════════════════════════════
+   MODALS
+════════════════════════════════════════════ */
+function openTech() {
+  document.getElementById('modal-title').textContent = '🔬 Технологии';
+  document.getElementById('modal-close').style.display = '';
+
+  let sciPT = 1;
+  for (const city of G.cities) {
+    sciPT += 1;
+    for (const b of city.buildings) { if (BLDGS[b]) sciPT += BLDGS[b].sci; }
+  }
+
+  let html = '<div style="color:#58a6ff;font-size:11px;margin-bottom:10px">🔬 Наука: <b>+' + sciPT + '/ход</b>';
+  if (G.techQ) {
+    const t = TECHS.find(x => x.id === G.techQ);
+    const turns = Math.max(1, Math.ceil((t.cost - G.sciProg) / sciPT));
+    html += ' &nbsp;|&nbsp; ⏳ <b>' + t.name + '</b> ' + G.sciProg + '/' + t.cost + ' (~' + turns + ' ход)';
+  }
+  html += '</div>';
+
+  for (const t of TECHS) {
+    const done  = G.techs.includes(t.id);
+    const avail = !done && t.pre.every(p => G.techs.includes(p));
+    const cur   = G.techQ === t.id;
+    const turns = (avail || cur) ? Math.max(1, Math.ceil((t.cost - (cur ? G.sciProg : 0)) / sciPT)) : null;
+    const cls   = 'list-item' + (done ? ' done' : (avail || cur) ? ' active' : ' locked');
+    const click = (avail && !cur) ? 'onclick="pickTech(\'' + t.id + '\')"' : '';
+    const status = done ? '✅' : cur ? '⏳' : avail ? '📖' : '🔒';
+    const iconTag = t.icon ? '<img src="sprites/sprite_' + t.icon[0] + '_' + t.icon[1] + '.png" width="40" height="40" style="flex-shrink:0;border-radius:6px">' : '<span>' + status + '</span>';
+    const prereq = t.pre.length ? ' · нужно: ' + t.pre.map(p => { const x = TECHS.find(x => x.id === p); return x ? x.name : p; }).join(', ') : '';
+    const turnsStr = turns ? ' · ~' + turns + ' ход' : '';
+    html += '<div class="' + cls + '" ' + click + ' style="gap:10px">'
+      + iconTag
+      + '<div style="flex:1;min-width:0"><b>' + t.name + '</b>'
+      + '<div style="font-size:11px;color:#8b949e">' + t.desc + prereq + turnsStr + '</div></div>'
+      + '<span class="cost" style="white-space:nowrap">' + status + ' ' + t.cost + '🔬</span>'
+      + '</div>';
+  }
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal').classList.add('show');
+}
+
+function pickTech(id) {
+  G.techQ=id; G.sciProg=0;
+  closeModal();
+  toast('📖 Изучаем: '+TECHS.find(t=>t.id===id).name);
+  updateUI();
+}
+
+function openCity() {
+  const sel = G.sel;
+  if (!sel || sel.type !== 'city') return;
+  const city = G.cities.find(c=>c.id===sel.id);
+  if (!city) return;
+  document.getElementById('modal-title').textContent = `🏙 ${city.name}`;
+  document.getElementById('modal-close').style.display = '';
+
+  // Production per turn for this city
+  let prodPT = 1;
+  for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
+    const tc=city.c+dc, tr=city.r+dr;
+    if (inB(tc,tr) && dist(city.c,city.r,tc,tr)<=1)
+      prodPT += TERRAIN[G.map[tr][tc].t].prod;
+  }
+  for (const b of city.buildings) if (BLDGS[b]) prodPT += (BLDGS[b].prod||0);
+
+  const bldgNames = city.buildings.map(b=>BLDGS[b]?.name||b).join(', ') || 'нет';
+  let html = `<div style="color:#8b949e;font-size:11px;margin-bottom:10px">
+    ⚒️ ~${prodPT}/ход &nbsp;|&nbsp; Здания: ${bldgNames}
+  </div>`;
+
+  // Units
+  html += `<div style="font-size:11px;color:#8b949e;margin:6px 0 4px">⚔️ Юниты</div>`;
+  for (const [type, def] of Object.entries(UNITS)) {
+    if (def.req && !G.techs.includes(def.req)) continue;
+    const key  = `U:${type}`;
+    const cur  = city.prod === key;
+    const prog = cur ? city.prodProg : 0;
+    const turns = Math.max(1, Math.ceil((def.cost - prog) / prodPT));
+    html += `<div class="list-item${cur?' active':''}" onclick="setProd('${city.id}','${key}')" style="gap:10px">
+      <img src="sprites/sprite_${def.sp[0]}_${def.sp[1]}.png" width="40" height="40" style="flex-shrink:0;border-radius:6px">
+      <div style="flex:1">
+        <b>${def.name}</b>${cur?` <span style="color:#3fb950">(${prog}/${def.cost})</span>`:''}
+        <div style="font-size:11px;color:#8b949e">⚔️${def.str} ❤️${def.hp} ⚡${def.move} · ~${turns} ход</div>
+      </div>
+      <span class="cost">${def.cost}⚒️</span>
+    </div>`;
+  }
+
+  // Buildings
+  const availBldgs = Object.entries(BLDGS).filter(([type,def])=>
+    !(def.req && !G.techs.includes(def.req)) && !city.buildings.includes(type));
+  if (availBldgs.length) {
+    html += `<div style="font-size:11px;color:#8b949e;margin:8px 0 4px">🏛 Здания</div>`;
+    for (const [type, def] of availBldgs) {
+      const cur   = city.prod === type;
+      const prog  = cur ? city.prodProg : 0;
+      const turns = Math.max(1, Math.ceil((def.cost - prog) / prodPT));
+      const yields = [def.food?`🌾${def.food}`:'', def.prod?`⚒️${def.prod}`:'', def.gold?`💰${def.gold}`:'', def.sci?`🔬${def.sci}`:''].filter(Boolean).join(' ');
+      html += `<div class="list-item${cur?' active':''}" onclick="setProd('${city.id}','${type}')" style="gap:10px">
+        <img src="sprites/sprite_${def.sp[0]}_${def.sp[1]}.png" width="40" height="40" style="flex-shrink:0;border-radius:6px">
+        <div style="flex:1">
+          <b>${def.name}</b>${cur?` <span style="color:#3fb950">(${prog}/${def.cost})</span>`:''}
+          <div style="font-size:11px;color:#8b949e">${yields} · ~${turns} ход</div>
+        </div>
+        <span class="cost">${def.cost}⚒️</span>
+      </div>`;
+    }
+  }
+
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal').classList.add('show');
+}
+
+function setProd(cityId, prod) {
+  const city=G.cities.find(c=>c.id==cityId);
+  if (city) { city.prod=prod; city.prodProg=0; }
+  closeModal(); updatePanel();
+  toast(`🏗 Производство: ${prod.startsWith('U:') ? UNITS[prod.slice(2)]?.name : BLDGS[prod]?.name}`);
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  document.getElementById('modal-close').style.display='';
+}
+
+/* ════════════════════════════════════════════
+   ACTIONS
+════════════════════════════════════════════ */
+function doFoundCity() {
+  if (!G.sel||G.sel.type!=='unit') return;
+  const u=G.units.find(x=>x.id===G.sel.id);
+  if (u?.type==='SETTLER') foundCity(u);
+}
+function desel() { G.sel=null; updatePanel(); render(); }
+
+/* ════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════ */
+let toastTmr;
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTmr);
+  toastTmr=setTimeout(()=>el.classList.remove('show'), 2800);
+}
+
+/* ════════════════════════════════════════════
+   INPUT (touch + mouse)
+════════════════════════════════════════════ */
+let drag=false, dragOX=0, dragOY=0, dragCX=0, dragCY=0;
+let touchX0=0, touchY0=0;
+
+canvas.addEventListener('pointerdown', e=>{
+  drag=false;
+  dragOX=e.clientX; dragOY=e.clientY;
+  dragCX=G.camX; dragCY=G.camY;
+  touchX0=e.clientX; touchY0=e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+}, {passive:true});
+
+canvas.addEventListener('pointermove', e=>{
+  if (!e.buttons) return;
+  const dx=e.clientX-dragOX, dy=e.clientY-dragOY;
+  if (Math.abs(dx)>6||Math.abs(dy)>6) {
+    drag=true;
+    G.camX=dragCX+dx; G.camY=dragCY+dy;
+    render();
+  }
+}, {passive:true});
+
+canvas.addEventListener('pointerup', e=>{
+  if (!drag) {
+    const rect=canvas.getBoundingClientRect();
+    handleTap(touchX0-rect.left, touchY0-rect.top);
+  }
+  drag=false;
+}, {passive:true});
+
+function handleTap(px, py) {
+  if (G.over) return;
+  const {col,row}=px2h(px,py);
+  if (!inB(col,row)) return;
+
+  const pu=G.units.find(u=>u.c===col&&u.r===row);
+  const pc=G.cities.find(c=>c.c===col&&c.r===row);
+  const au=G.aUnits.find(u=>u.c===col&&u.r===row);
+  const ac=G.aCities.find(c=>c.c===col&&c.r===row);
+  const vis=G.vis[row][col];
+
+  const sel=G.sel;
+
+  // ─── Selected unit: try to act ───
+  if (sel?.type==='unit') {
+    const u=G.units.find(x=>x.id===sel.id);
+    if (!u) { G.sel=null; updatePanel(); return; }
+
+    // Tap on own tile → deselect
+    if (u.c===col&&u.r===row) { desel(); return; }
+
+    // Attack enemy unit (adjacent)
+    if (au && vis && u.movesLeft>0 && dist(u.c,u.r,col,row)<=1) {
+      doCombat(u,au,true); u.movesLeft=0;
+      updateVis(); updateUI(); render(); return;
+    }
+    // Attack enemy city (adjacent)
+    if (ac && vis && u.movesLeft>0 && dist(u.c,u.r,col,row)<=1 && u.type!=='SETTLER') {
+      attackCity(u,ac,true);
+      updateVis(); updateUI(); render(); return;
+    }
+    // Move
+    if (!pu && !pc && u.movesLeft>0) {
+      const t=G.map[row][col];
+      const mv=TERRAIN[t.t].move;
+      if (mv<9) {
+        // One-step greedy move towards clicked tile
+        let targetC=col, targetR=row;
+        if (dist(u.c,u.r,col,row)>1) {
+          // Multi-step: find best adjacent
+          let best=null, bestD=dist(u.c,u.r,col,row);
+          for (const nb of neighbors(u.c,u.r)) {
+            if (!inB(nb.col,nb.row)) continue;
+            const tt=TERRAIN[G.map[nb.row][nb.col].t];
+            if (tt.move>=9) continue;
+            if (G.units.find(x=>x.c===nb.col&&x.r===nb.row)) continue;
+            const d=dist(nb.col,nb.row,col,row);
+            if (d<bestD) { bestD=d; best=nb; }
+          }
+          if (!best) { desel(); return; }
+          targetC=best.col; targetR=best.row;
+        }
+        const stepCost=TERRAIN[G.map[targetR][targetC].t].move;
+        if (stepCost<=u.movesLeft && !G.units.find(x=>x.c===targetC&&x.r===targetR)) {
+          u.c=targetC; u.r=targetR; u.movesLeft-=stepCost;
+          updateVis(); updateUI(); render(); return;
+        }
+      }
+    }
+    desel(); return;
+  }
+
+  // ─── No selection: select something ───
+  if (pu) {
+    G.sel={type:'unit',id:pu.id};
+    updatePanel(); render(); return;
+  }
+  if (pc) {
+    G.sel={type:'city',id:pc.id};
+    updatePanel(); render(); return;
+  }
+  desel();
+}
+
+/* ════════════════════════════════════════════
+   STARTUP
+════════════════════════════════════════════ */
+window.addEventListener('resize', sizeCanvas);
+sizeCanvas();
+initGame();
+</script>
+</body>
+</html>
